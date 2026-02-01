@@ -2,9 +2,9 @@ pipeline{
     agent any
 
     environment {
-        AWS_ACCOUNT_ID = '944880694929' // Replace with your AWS Account ID
-        AWS_REGION     = 'us-east-1'     // Replace with your ECR region
-        ECR_REPO_NAME  = 'tetris-game'   // Your ECR repository name
+        AWS_ACCOUNT_ID = '944880694929'
+        AWS_REGION     = 'us-east-1'     
+        ECR_REPO_NAME  = 'tetris-game'   
         ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
@@ -14,6 +14,7 @@ pipeline{
         stage('SonarQube Analysis') {
             steps {
                 script {
+                    def scannerHome = tool 'sonar-scanner'
                     dir('Tetris-V2') {
                         withSonarQubeEnv('sonar-server') {
                             sh "/usr/local/bin/sonar-scanner \
