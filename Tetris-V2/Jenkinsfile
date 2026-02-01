@@ -11,7 +11,30 @@ pipeline {
 
     stages {
 
-        stage('SonarQube Analysis') {
+        stage('Install Dependencies') {
+            steps {
+                dir('Tetris-V2') {
+                    sh 'npm install'
+                }
+            }
+        }
+
+        stage('Build App') {
+            steps {
+                dir('Tetris-V2') {
+                    sh 'npm run build'
+                }
+            }
+        }
+        stage('Test App') {
+            steps {
+                dir('Tetris-V2') {
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('SonarQube Scanning') {
             steps {
                 script {
                     def scannerHome = tool 'sonar-scanner'
@@ -21,7 +44,7 @@ pipeline {
                             -Dsonar.host.url=http://192.168.137.234:9000 \
                             -Dsonar.projectKey=Tetris \
                             -Dsonar.projectName=Tetris \
-                            -Dsonar.sources=src
+                            -Dsonar.sources=Tetris-V2/src \
                         """
 
                     }
