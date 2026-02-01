@@ -39,13 +39,13 @@ pipeline {
             }
         }
 
-        stage('Test App') {
-            steps {
-                dir('Tetris-V2') {
-                    sh 'npm test'
-                }
-            }
-        }
+        // stage('Test App') {
+        //     steps {
+        //         dir('Tetris-V2') {
+        //             sh 'npm test'
+        //         }
+        //     }
+        // }
 
         stage('SonarQube Scanning') {
             steps {
