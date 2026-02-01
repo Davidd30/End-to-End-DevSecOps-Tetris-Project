@@ -11,6 +11,19 @@ pipeline{
 
     stages {
 
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    dir('Tetris-V2') {
+                        withSonarQubeEnv('sonar-server') {
+                            sh "/usr/local/bin/sonar-scanner \
+                                -Dsonar.projectKey=Tetris-Game \
+                                -Dsonar.sources=."
+                        }
+                    }
+                }
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
