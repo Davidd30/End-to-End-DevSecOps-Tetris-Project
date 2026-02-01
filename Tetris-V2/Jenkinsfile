@@ -11,17 +11,15 @@ pipeline{
 
     stages {
 
-        stage('SonarQube Analysis') {
+        stage('SonarQube Scanning') {
             steps {
                 script {
-                    dir('Tetris-V2') {
-                        withSonarQubeEnv('sonar-server') {
-                            def scannerHome = tool 'SonarScanner'
-                            sh "${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=Tetris-Game \
-                                -Dsonar.projectName=Tetris-Game \
-                                -Dsonar.sources=src"
-                        }
+                    withSonarQubeEnv('sonar-server') {
+                        def scannerHome = tool 'SonarScanner'
+                        sh "${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=Tetris-Game \
+                            -Dsonar.projectName=Tetris-Game \
+                            -Dsonar.sources=src"
                     }
                 }
             }
@@ -34,7 +32,7 @@ pipeline{
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 script {
