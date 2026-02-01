@@ -14,12 +14,13 @@ pipeline{
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    def scannerHome = tool 'sonar-scanner'
                     dir('Tetris-V2') {
                         withSonarQubeEnv('sonar-server') {
-                            sh "/usr/local/bin/sonar-scanner \
+                            def scannerHome = tool 'SonarScanner'
+                            sh "${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=Tetris-Game \
-                                -Dsonar.sources=."
+                                -Dsonar.projectName=Tetris-Game \
+                                -Dsonar.sources=src"
                         }
                     }
                 }
