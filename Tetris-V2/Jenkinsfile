@@ -9,7 +9,17 @@ pipeline {
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
 
+    tools {
+        nodejs 'nodejs'
+    }
+
+
     stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
 
         stage('Install Dependencies') {
             steps {
