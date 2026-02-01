@@ -1,0 +1,52 @@
+pipeline{
+    agent any
+
+    environment {
+        AWS_ACCOUNT_ID = '944880694929' // Replace with your AWS Account ID
+        AWS_REGION     = 'us-east-1'     // Replace with your ECR region
+        ECR_REPO_NAME  = 'tetris-game'   // Your ECR repository name
+        ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_TAG      = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "Building Tetris Docker Image..."
+                    sh "docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} -f Tetris-V2/Dockerfile Tetris-V2/."
+                    sh "docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    echo "Scanning Image: ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Push to ECR') {
+            steps {
+        // Mapping the Jenkins Credential to temporary Environment Variables
+                withCredentials([usernamePassword(credentialsId: 'aws-user-pass-id', 
+                                                passwordVariable: 'AWS_SECRET_ACCESS_KEY', 
+                                                usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
+                    script {
+                        echo "Logging into Amazon ECR..."
+                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        
+                        echo "Pushing Image..."
+                        sh "docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+
+    }
+}
