@@ -32,10 +32,13 @@ pipeline {
         stage('Build App') {
             steps {
                 dir('Tetris-V2') {
-                    sh 'npm run build'
+                    withEnv(["NODE_OPTIONS=--openssl-legacy-provider"]) {
+                        sh 'npm run build'
+                    }
                 }
             }
         }
+
         stage('Test App') {
             steps {
                 dir('Tetris-V2') {
