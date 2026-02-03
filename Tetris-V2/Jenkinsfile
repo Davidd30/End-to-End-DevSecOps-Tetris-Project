@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCOUNT_ID = '944880694929'
+        AWS_ACCOUNT_ID = '391369718038'
         AWS_REGION     = 'us-east-1'
         ECR_REPO_NAME  = 'tetris-game'
         ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -87,7 +87,7 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'aws-user-pass-id',
+                        credentialsId: 'aws-dorgham',
                         usernameVariable: 'AWS_ACCESS_KEY_ID',
                         passwordVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
@@ -105,5 +105,16 @@ pipeline {
                 }
             }
         }
+        stage('Update Deployment YAML') {
+            steps {
+                script {
+                    def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                    echo "Updating deployment.yaml with ${imageUri}"
+                    sh "sed -i 's|<IMAGE_URI>|${imageUri}|g' k8s/deployment.yaml"
+                }
+            }
+        }
+
+
     }
 }
