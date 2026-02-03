@@ -58,7 +58,7 @@ pipeline {
                             -Dsonar.projectName=Tetris \
                             -Dsonar.organization=davidd30 \
                             -Dsonar.host.url=https://sonarcloud.io \
-                            -Dsonar.sources=Tetris-V2/src \
+                            -Dsonar.sources=Tetris-V2/src
                         """
 
                     }
