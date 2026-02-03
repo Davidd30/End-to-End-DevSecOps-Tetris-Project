@@ -54,7 +54,6 @@ pipeline {
                     withSonarQubeEnv('sonar-server') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.host.url=http://192.168.137.234:9000 \
                             -Dsonar.projectKey=Tetris \
                             -Dsonar.projectName=Tetris \
                             -Dsonar.sources=Tetris-V2/src \
