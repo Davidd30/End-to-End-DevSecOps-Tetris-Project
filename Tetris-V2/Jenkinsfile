@@ -111,15 +111,45 @@ pipeline {
             }
         }
 
-        stage('Update Deployment YAML') {
-            steps {
-                script {
-                    def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-                    echo "Updating deployment.yaml with ${imageUri}"
-                    sh "sed -i \"s|${ECR_REGISTRY}/${ECR_REPO_NAME}:.*|${imageUri}|g\" Tetris-V2/k8s/deployment.yaml"
-                }
-            }
-        }
+        // stage('Update Deployment YAML') {
+        //     steps {
+        //         script {
+        //             def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        //             echo "Updating deployment.yaml with ${imageUri}"
+        //             sh "sed -i \"s|${ECR_REGISTRY}/${ECR_REPO_NAME}:.*|${imageUri}|g\" Tetris-V2/k8s/deployment.yaml"
+        //         }
+        //     }
+        // }
+
+        // stage('Push Manifest to GitHub') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'GitHub-Token', 
+        //                 usernameVariable: 'GIT_USER', 
+        //                 passwordVariable: 'GIT_TOKEN'
+        //             )
+        //         ]) {
+        //             script {
+        //                 sh """
+        //                     git checkout main || git checkout -b main
+
+        //                     git config user.email "david.nabil987@gmail.com"
+        //                     git config user.name "Davidd30"
+
+        //                     git add Tetris-V2/k8s/deployment.yaml
+                            
+        //                     if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
+        //                         echo "No changes detected in deployment.yaml. Skipping push."
+        //                     else
+        //                         git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+        //                         git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
+        //                     fi
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Push Manifest to GitHub') {
             steps {
@@ -131,18 +161,29 @@ pipeline {
                     )
                 ]) {
                     script {
+                        def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                        
                         sh """
+                            # 1. Switch to branch first (prevents checkout from overwriting local changes)
                             git checkout main || git checkout -b main
-
+                            
+                            # 2. Setup identity
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
 
+                            # 3. Apply the change NOW while on the main branch
+                            echo "Updating manifest with image: ${imageUri}"
+                            sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
+                            
+                            cat Tetris-V2/k8s/deployment.yaml
+
+                            # 4. Stage and verify
                             git add Tetris-V2/k8s/deployment.yaml
                             
                             if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
-                                echo "No changes detected in deployment.yaml. Skipping push."
+                                echo "No changes detected. The file might already be updated."
                             else
-                                git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+                                git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
                                 git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
                             fi
                         """
