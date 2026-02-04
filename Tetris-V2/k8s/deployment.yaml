@@ -21,7 +21,7 @@ spec:
         fsGroup: 2000
       containers:
         - name: tetris
-          image: <IMAGE_URL>
+          image: <IMAGE_URI>
           imagePullPolicy: Always
           ports:
             - name: http
