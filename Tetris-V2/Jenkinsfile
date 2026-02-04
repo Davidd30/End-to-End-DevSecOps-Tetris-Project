@@ -64,16 +64,32 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Setup Buildx') {
             steps {
                 script {
-                    echo "Building Tetris Docker Image..."
-                    sh "docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} -f Tetris-V2/Dockerfile Tetris-V2/."
-                    sh "docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                    sh 'docker run --privileged --rm tonistiigi/binfmt --install all'
+                    sh '''
+                        docker buildx create --name mybuilder --use || true
+                        docker buildx inspect --bootstrap
+                    '''
                 }
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "Building Docker Image..."
+                    sh """
+                      docker buildx build --platform linux/amd64,linux/arm64 \
+                      -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+                      -f Tetris-V2/Dockerfile \
+                      --push .
+                    """
+                }
+            }
+        }
+        
         stage('Trivy Image Scan') {
             steps {
                 script {
@@ -94,27 +110,30 @@ pipeline {
                 ]) {
                     script {
                         echo "Logging into Amazon ECR..."
-                        sh """
-                          aws ecr get-login-password --region ${AWS_REGION} \
-                          | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                        """
+                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
 
-                        echo "Pushing Image..."
-                        sh "docker push ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                        echo "Pushing Multi-Arch Image from cache..."
+                        sh """
+                            docker buildx build \
+                            --platform linux/amd64,linux/arm64 \
+                            -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+                            -f Tetris-V2/Dockerfile \
+                            --cache-from type=local,src=./build-cache \
+                            --push Tetris-V2/.
+                        """
                     }
                 }
             }
         }
+
         stage('Update Deployment YAML') {
             steps {
                 script {
                     def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                     echo "Updating deployment.yaml with ${imageUri}"
-                    sh "sed -i 's|<IMAGE_URI>|${imageUri}|g' k8s/deployment.yaml"
+                    sh "sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml"
                 }
             }
         }
-
-
     }
 }
