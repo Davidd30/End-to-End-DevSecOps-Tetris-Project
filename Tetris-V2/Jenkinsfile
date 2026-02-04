@@ -171,6 +171,10 @@ pipeline {
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
 
+                            git fetch origin main
+                            git checkout main
+                            git reset --hard origin/main
+
                             # 3. Apply the change NOW while on the main branch
                             echo "Updating manifest with image: ${imageUri}"
                             sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
