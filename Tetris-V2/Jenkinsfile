@@ -132,16 +132,18 @@ pipeline {
                 ]) {
                     script {
                         sh """
+                            git checkout main || git checkout -b main
+
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
 
                             git add Tetris-V2/k8s/deployment.yaml
                             
-                            if git diff-index --quiet HEAD; then
+                            if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
                                 echo "No changes detected in deployment.yaml. Skipping push."
                             else
-                                git commit -m "Update Deployment file to edit image to ${IMAGE_TAG} [skip ci]"
-                                git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git HEAD:main
+                                git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+                                git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
                             fi
                         """
                     }
