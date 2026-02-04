@@ -76,30 +76,7 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    echo "Building Docker Image..."
-                    sh """
-                      docker buildx build --platform linux/amd64,linux/arm64 \
-                      -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
-                      -f Tetris-V2/Dockerfile \
-                      --push .
-                    """
-                }
-            }
-        }
-        
-        stage('Trivy Image Scan') {
-            steps {
-                script {
-                    echo "Scanning Image..."
-                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Push to ECR') {
+        stage('Build & Push Multi-Arch Image') {
             steps {
                 withCredentials([
                     usernamePassword(
@@ -111,17 +88,25 @@ pipeline {
                     script {
                         echo "Logging into Amazon ECR..."
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-
-                        echo "Pushing Multi-Arch Image from cache..."
+        
+                        echo "Building and Pushing for amd64 and arm64..."
                         sh """
                             docker buildx build \
                             --platform linux/amd64,linux/arm64 \
                             -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
                             -f Tetris-V2/Dockerfile \
-                            --cache-from type=local,src=./build-cache \
                             --push Tetris-V2/.
                         """
                     }
+                }
+            }
+        }
+        
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    echo "Scanning Image..."
+                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                 }
             }
         }
