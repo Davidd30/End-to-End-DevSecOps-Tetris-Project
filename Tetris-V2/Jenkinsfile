@@ -101,7 +101,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Trivy Image Scan') {
             steps {
                 script {
@@ -117,6 +117,34 @@ pipeline {
                     def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                     echo "Updating deployment.yaml with ${imageUri}"
                     sh "sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml"
+                }
+            }
+        }
+
+        stage('Push Manifest to GitHub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'GitHub-Token', 
+                        usernameVariable: 'GIT_USER', 
+                        passwordVariable: 'GIT_TOKEN'
+                    )
+                ]) {
+                    script {
+                        sh """
+                            git config user.email "david.nabil987@gmail.com"
+                            git config user.name "Davidd30"
+
+                            git add Tetris-V2/k8s/deployment.yaml
+                            
+                            if git diff-index --quiet HEAD; then
+                                echo "No changes detected in deployment.yaml. Skipping push."
+                            else
+                                git commit -m "Update Deployment file to edit image to ${IMAGE_TAG} [skip ci]"
+                                git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git HEAD:main
+                            fi
+                        """
+                    }
                 }
             }
         }
