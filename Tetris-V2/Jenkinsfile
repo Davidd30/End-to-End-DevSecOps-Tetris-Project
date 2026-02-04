@@ -188,7 +188,7 @@ pipeline {
                                 echo "No changes detected. The file might already be updated."
                             else
                                 git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
-                                git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
+                                git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
                             fi
                         """
                     }
