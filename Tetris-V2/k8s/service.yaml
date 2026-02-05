@@ -4,7 +4,7 @@ metadata:
   name: tetris-service
   namespace: tetris
 spec:
-  type: LoadBalancer # ده اللي هيخلي AWS تكرت لنا Public IP/DNS
+  type: LoadBalancer
   selector:
     app: tetris
   ports:

@@ -13,7 +13,7 @@ module "iam_module" {
 
 module "security_groups" {
   source       = "./modules/security-groups"
-  vpc_id       = module.vpc_module.vpc_id # بياخد الـ ID من موديول الـ VPC
+  vpc_id       = module.vpc_module.vpc_id 
   cluster_name = var.eks_cluster_name
 }
 
@@ -22,6 +22,6 @@ module "eks_module" {
   cluster_name     = var.eks_cluster_name
   cluster_role_arn = module.iam_module.cluster_role_arn
   node_role_arn    = module.iam_module.node_role_arn
-  subnet_ids       = module.vpc_module.private_subnet_ids # الـ Nodes بتتحط في الـ Private للأمان
+  subnet_ids       = module.vpc_module.private_subnet_ids 
   nodes_sg_id      = module.security_groups.nodes_sg_id
 }

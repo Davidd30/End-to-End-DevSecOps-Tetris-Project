@@ -11,7 +11,7 @@ resource "aws_iam_role" "this" {
   })
 }
 
-# استخدام for_each عشان نربط الـ 3 سياسات بمرة واحدة
+
 resource "aws_iam_role_policy_attachment" "node_policies" {
   for_each = toset([
     "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",

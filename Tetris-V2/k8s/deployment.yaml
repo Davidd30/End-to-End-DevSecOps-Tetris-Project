@@ -1,12 +1,9 @@
-
-# 1. تكريت الـ Service Account عشان الـ Deployment يلاقيه
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: tetris-sa
   namespace: tetris
 ---
-# 2. ملف الـ Deployment بتاعك مع تعديلات بسيطة للثبات
 apiVersion: apps/v1
 kind: Deployment
 metadata:

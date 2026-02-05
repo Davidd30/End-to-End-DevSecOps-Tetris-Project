@@ -1,8 +1,7 @@
-# 1. الـ EKS Cluster (Control Plane)
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = var.cluster_role_arn
-  version  = "1.33" # نسخة مستقرة
+  version  = "1.33" 
 
   vpc_config {
     subnet_ids         = var.subnet_ids
@@ -10,7 +9,6 @@ resource "aws_eks_cluster" "this" {
   }
 }
 
-# 2. الـ Node Group (السيرفرات اللي هتشيل اللعبة)
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodes"
@@ -18,12 +16,12 @@ resource "aws_eks_node_group" "this" {
   subnet_ids      = var.subnet_ids
 
   scaling_config {
-    desired_size = 2 # يبدأ بسيرفرين
-    max_size     = 3 # يفتح لـ 3 لو فيه ضغط
-    min_size     = 1 # ميفضلش أقل من واحد
+    desired_size = 2 
+    max_size     = 3 
+    min_size     = 1 
   }
 
-  instance_types = ["t3.medium"] # مناسبة جداً للعبة التيتريس والتجارب
+  instance_types = ["t3.medium"] 
 
   capacity_type = "ON_DEMAND"
 }
