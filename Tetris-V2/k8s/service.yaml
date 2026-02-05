@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tetris-service
+  namespace: tetris
+spec:
+  type: LoadBalancer # ده اللي هيخلي AWS تكرت لنا Public IP/DNS
+  selector:
+    app: tetris
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
