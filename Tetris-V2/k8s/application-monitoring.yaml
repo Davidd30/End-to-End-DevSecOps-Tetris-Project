@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetris-monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project
+    targetRevision: feature/monitoring
+    path: Tetris-V2/k8s/monitoring-all
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tetris
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
