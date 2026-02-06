@@ -76,23 +76,45 @@ pipeline {
             }
         }
 
-        stage('Build & Push Multi-Arch Image') {
+        stage('Docker Build (Local amd64)') {
+            steps {
+                script {
+                    echo "Building amd64 image and loading it locally for scanning..."
+                    // We use --load to make the image available for Trivy on the host
+                    sh """
+                        docker buildx build \
+                        --platform linux/amd64 \
+                        -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+                        -f Tetris-V2/Dockerfile \
+                        --load Tetris-V2/.
+                    """
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    echo "Scanning Image with Trivy..."
+                    // --exit-code 1 will fail the pipeline if vulnerabilities are found
+                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL --exit-code 1 ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Push Image to ECR') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-dorgham',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    usernamePassword(credentialsId: 'aws-dorgham', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     script {
                         echo "Logging into Amazon ECR..."
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-        
-                        echo "Building and Pushing for amd64 and arm64..."
+                        
+                        echo "Pushing amd64 image to ECR..."
                         sh """
                             docker buildx build \
-                            --platform linux/amd64,linux/arm64 \
+                            --platform linux/amd64 \
                             -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
                             -f Tetris-V2/Dockerfile \
                             --push Tetris-V2/.
@@ -101,15 +123,46 @@ pipeline {
                 }
             }
         }
+        // stage('Build & Push Multi-Arch Image') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'aws-dorgham',
+        //                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+        //                 passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        //             )
+        //         ]) {
+        //             script {
+        //                 echo "Logging into Amazon ECR..."
+        //                 sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+        
+        //                 echo "Building and Pushing for amd64 and arm64..."
+        //                 sh """
+        //                     docker buildx build \
+        //                     --platform linux/amd64,linux/arm64 \
+        //                     -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+        //                     -f Tetris-V2/Dockerfile \
+        //                     --push Tetris-V2/.
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
 
-        stage('Trivy Image Scan') {
-            steps {
-                script {
-                    echo "Scanning Image..."
-                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-                }
-            }
-        }
+        // stage('Trivy Image Scan') {
+        //     steps {
+        //         script {
+        //             echo "Scanning Image..."
+        //             sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        //         }
+        //     }
+        // }
+
+
+
+
+
+
 
         // stage('Update Deployment YAML') {
         //     steps {
@@ -164,10 +217,8 @@ pipeline {
                         def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                         
                         sh """
-                            # 1. Switch to branch first (prevents checkout from overwriting local changes)
                             git checkout main || git checkout -b main
                             
-                            # 2. Setup identity
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
 
@@ -175,19 +226,17 @@ pipeline {
                             git checkout main
                             git reset --hard origin/main
 
-                            # 3. Apply the change NOW while on the main branch
                             echo "Updating manifest with image: ${imageUri}"
                             sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
                             
                             cat Tetris-V2/k8s/deployment.yaml
 
-                            # 4. Stage and verify
                             git add Tetris-V2/k8s/deployment.yaml
                             
                             if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
                                 echo "No changes detected. The file might already be updated."
                             else
-                                git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
+                                git commit -m "Updating image to ${IMAGE_TAG}"
                                 git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
                             fi
                         """
