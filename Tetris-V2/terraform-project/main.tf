@@ -1,7 +1,3 @@
-provider "aws" {
-  region = "us-east-1"
-}
-
 resource "aws_s3_bucket" "terraform_state" {
   bucket        = "beshoy-eks-state-unique-id" # غير الاسم ده لاسم فريد
   force_destroy = true # عشان لو حبيت تمسحها بعدين بسهولة
