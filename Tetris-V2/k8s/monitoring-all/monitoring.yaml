@@ -124,6 +124,18 @@ spec:
         image: prom/alertmanager:latest
         args:
           - "--config.file=/etc/alertmanager/config.yml"
+spec:
+  containers:
+    - name: alertmanager
+      image: prom/alertmanager:latest
+      args:
+        - --config.file=/etc/alertmanager/config.yml
+      env:
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: slack-webhook #secret
+              key: url
         ports:
           - containerPort: 9093
         volumeMounts:
@@ -164,4 +176,4 @@ data:
         slack_configs:
           - channel: '#alerts'
             send_resolved: true
-            api_url: "https://hooks.slack.com/services/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" #webhook url
+            api_url: ${SLACK_WEBHOOK_URL} #webhook url
