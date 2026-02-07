@@ -7,7 +7,7 @@ spec:
   source:
     repoURL: https://github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project
     targetRevision: feature/monitoring
-    path: Tetris-V2/k8s/monitoring-all  # هذا المسار يجب أن يكون مطابق للملف على GitHub
+    path: Tetris-V2/k8s/monitoring-all
   destination:
     server: https://kubernetes.default.svc
     namespace: tetris
