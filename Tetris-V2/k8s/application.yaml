@@ -1,13 +1,13 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: ArgoCD-deployment
+  name: argocd-deployment
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project'
-    targetRevision: HEAD
+    targetRevision: rina2
     path: 'Tetris-V2/k8s' 
   destination:
     server: 'https://kubernetes.default.svc'

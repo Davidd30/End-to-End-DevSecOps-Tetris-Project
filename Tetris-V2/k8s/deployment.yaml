@@ -26,7 +26,7 @@ spec:
       
       containers:
         - name: tetris
-          image: 391369718038.dkr.ecr.us-east-1.amazonaws.com/tetris-game@sha256:a11980746f5839743fe96a6d153a34b8a091532a7a368e161d8aa23177eb00f9
+          image: 391369718038.dkr.ecr.us-east-1.amazonaws.com/tetris-game:63
           imagePullPolicy: Always
           ports:
             - name: http
@@ -39,3 +39,16 @@ spec:
               cpu: "500m"
               memory: "256Mi"
          
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 10
