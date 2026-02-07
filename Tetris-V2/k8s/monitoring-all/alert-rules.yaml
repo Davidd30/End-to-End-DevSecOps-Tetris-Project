@@ -1,0 +1,35 @@
+groups:
+- name: test-alerts
+  rules:
+  - alert: TestSlackAlert
+    expr: vector(1)
+    for: 1m
+    labels:
+      severity: info
+    annotations:
+      summary: "Test Alert"
+      description: "This alert is for testing Slack integration"
+
+- name: kubernetes-resources
+  rules:
+    # CPU usage alert
+    - alert: HighCPUUsage
+      expr: sum(rate(container_cpu_usage_seconds_total{namespace="tetris"}[2m]))
+            / sum(kube_pod_container_resource_limits_cpu_cores{namespace="tetris"}) > 0.8
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage detected"
+        description: "CPU usage is above 80% for the last 2 minutes"
+
+    # Memory usage alert
+    - alert: HighMemoryUsage
+      expr: sum(container_memory_usage_bytes{namespace="tetris"})
+            / sum(kube_pod_container_resource_limits_memory_bytes{namespace="tetris"}) > 0.8
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High Memory usage detected"
+        description: "Memory usage is above 80% for the last 2 minutes"

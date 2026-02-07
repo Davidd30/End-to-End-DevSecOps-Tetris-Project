@@ -17,19 +17,24 @@ spec:
         app: prometheus
     spec:
       containers:
-      - name: prometheus
-        image: prom/prometheus:latest
-        args:
-          - "--config.file=/etc/prometheus/prometheus.yml"
-        ports:
-          - containerPort: 9090
-        volumeMounts:
-          - name: config
-            mountPath: /etc/prometheus
+        - name: prometheus
+          image: prom/prometheus:latest
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: rules
+              mountPath: /etc/prometheus/rules
       volumes:
         - name: config
           configMap:
             name: prometheus-config
+        - name: rules
+          configMap:
+            name: prometheus-alert-rules
 ---
 apiVersion: v1
 kind: Service
@@ -53,7 +58,15 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yaml"
+
     scrape_configs:
+      # ======================
+      # Kubernetes Pods
+      # ======================
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
           - role: pod
@@ -61,6 +74,22 @@ data:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: tetris
+
+      # ======================
+      # Node Exporter
+      # ======================
+      - job_name: 'node-exporter'
+        static_configs:
+          - targets:
+              - node-exporter.kube-system.svc.cluster.local:9100
+
+      # ======================
+      # Kube State Metrics
+      # ======================
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets:
+              - kube-state-metrics.kube-system.svc.cluster.local:8080
 
 # ===============================
 # Grafana Deployment & Service
@@ -82,10 +111,10 @@ spec:
         app: grafana
     spec:
       containers:
-      - name: grafana
-        image: grafana/grafana:latest
-        ports:
-          - containerPort: 3000
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
 ---
 apiVersion: v1
 kind: Service
@@ -120,27 +149,21 @@ spec:
         app: alertmanager
     spec:
       containers:
-      - name: alertmanager
-        image: prom/alertmanager:latest
-        args:
-          - "--config.file=/etc/alertmanager/config.yml"
-spec:
-  containers:
-    - name: alertmanager
-      image: prom/alertmanager:latest
-      args:
-        - --config.file=/etc/alertmanager/config.yml
-      env:
-        - name: SLACK_WEBHOOK_URL
-          valueFrom:
-            secretKeyRef:
-              name: slack-webhook        #secret
-              key: url
-        ports:
-          - containerPort: 9093
-        volumeMounts:
-          - name: config
-            mountPath: /etc/alertmanager
+        - name: alertmanager
+          image: prom/alertmanager:latest
+          args:
+            - "--config.file=/etc/alertmanager/config.yml"
+          env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: slack-webhook
+                  key: url
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
       volumes:
         - name: config
           configMap:
@@ -176,4 +199,4 @@ data:
         slack_configs:
           - channel: '#alerts'
             send_resolved: true
-            api_url: ${SLACK_WEBHOOK_URL} #webhook url
+            api_url: 'https://hooks.slack.com/services/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'
