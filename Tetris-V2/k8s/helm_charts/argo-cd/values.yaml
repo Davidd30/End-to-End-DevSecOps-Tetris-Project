@@ -1012,7 +1012,7 @@ controller:
       labels: []
     service:
       # -- Metrics service type
-      type: ClusterIP
+      type: LoadBalancer
       # -- Metrics service clusterIP. `None` makes a "headless service" (no virtual IP)
       clusterIP: ""
       # -- Metrics service annotations

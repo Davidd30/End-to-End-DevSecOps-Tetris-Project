@@ -2,15 +2,9 @@ pipeline {
     agent any
 
     environment {
-<<<<<<< HEAD
         AWS_ACCOUNT_ID = '391369718038'
         AWS_REGION     = 'us-east-1'
         ECR_REPO_NAME  = 'tetris-game'
-=======
-        AWS_ACCOUNT_ID = '944880694929'
-        AWS_REGION     = 'us-east-1'     
-        ECR_REPO_NAME  = 'tetris-game'   
->>>>>>> 255d0e27 (Editing the Jenkinsfile to add SonarQube)
         ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
@@ -23,7 +17,6 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-<<<<<<< HEAD
                 checkout scm
             }
         }
@@ -41,16 +34,6 @@ pipeline {
                 dir('Tetris-V2') {
                     withEnv(["NODE_OPTIONS=--openssl-legacy-provider"]) {
                         sh 'npm run build'
-=======
-                script {
-                    def scannerHome = tool 'sonar-scanner'
-                    dir('Tetris-V2') {
-                        withSonarQubeEnv('sonar-server') {
-                            sh "/usr/local/bin/sonar-scanner \
-                                -Dsonar.projectKey=Tetris-Game \
-                                -Dsonar.sources=."
-                        }
->>>>>>> 255d0e27 (Editing the Jenkinsfile to add SonarQube)
                     }
                 }
             }
@@ -93,23 +76,46 @@ pipeline {
             }
         }
 
-        stage('Build & Push Multi-Arch Image') {
+stage('Docker Build (Local amd64)') {
+            steps {
+                script {
+                    echo "Building amd64 image and loading it locally for scanning..."
+                    // We use --load to make the image available for Trivy on the host
+                    sh """
+                        docker buildx build \
+                        --platform linux/amd64 \
+                        -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+                        -f Tetris-V2/Dockerfile \
+                        --load Tetris-V2/.
+                    """
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    echo "Scanning Image with Trivy..."
+                    // --exit-code 1 will fail the pipeline if vulnerabilities are found
+                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL --exit-code 1 ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Push Image to ECR') {
             steps {
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'aws-dorgham',
-                        usernameVariable: 'AWS_ACCESS_KEY_ID',
-                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                    usernamePassword(credentialsId: 'aws-dorgham', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     script {
                         echo "Logging into Amazon ECR..."
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-        
-                        echo "Building and Pushing for amd64 and arm64..."
+                        
+                        echo "Pushing amd64 image to ECR..."
+                        // Since it's already built, this will use the cache and push immediately
                         sh """
                             docker buildx build \
-                            --platform linux/amd64,linux/arm64 \
+                            --platform linux/amd64 \
                             -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
                             -f Tetris-V2/Dockerfile \
                             --push Tetris-V2/.
@@ -118,15 +124,46 @@ pipeline {
                 }
             }
         }
+        // stage('Build & Push Multi-Arch Image') {
+        //     steps {
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'aws-dorgham',
+        //                 usernameVariable: 'AWS_ACCESS_KEY_ID',
+        //                 passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+        //             )
+        //         ]) {
+        //             script {
+        //                 echo "Logging into Amazon ECR..."
+        //                 sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+        
+        //                 echo "Building and Pushing for amd64 and arm64..."
+        //                 sh """
+        //                     docker buildx build \
+        //                     --platform linux/amd64,linux/arm64 \
+        //                     -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
+        //                     -f Tetris-V2/Dockerfile \
+        //                     --push Tetris-V2/.
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
 
-        stage('Trivy Image Scan') {
-            steps {
-                script {
-                    echo "Scanning Image..."
-                    sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-                }
-            }
-        }
+        // stage('Trivy Image Scan') {
+        //     steps {
+        //         script {
+        //             echo "Scanning Image..."
+        //             sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        //         }
+        //     }
+        // }
+
+
+
+
+
+
 
         // stage('Update Deployment YAML') {
         //     steps {
@@ -181,31 +218,35 @@ pipeline {
                         def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                         
                         sh """
-                            # 1. Switch to branch first (prevents checkout from overwriting local changes)
-                            git checkout main || git checkout -b main
-                            
-                            # 2. Setup identity
+                            # 1. Setup user identity
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
-
-                            git fetch origin main
-                            git checkout main
-                            git reset --hard origin/main
-
-                            # 3. Apply the change NOW while on the main branch
+                
+                            # 2. FORCE CLEAN the workspace to remove build artifacts
+                            # This fixes the "Your local changes would be overwritten" error
+                            git reset --hard
+                            git clean -fd
+                
+                            # 3. Fetch and Switch to rina2 branch
+                            git fetch origin rina2
+                            git checkout rina2 || git checkout -b rina2
+                            git reset --hard origin/rina2
+                
+                            # 4. Update the image URI
+                            # Re-verify if 'Tetris-V2' is part of the path in the 'rina2' branch
                             echo "Updating manifest with image: ${imageUri}"
                             sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
                             
                             cat Tetris-V2/k8s/deployment.yaml
-
-                            # 4. Stage and verify
+                
+                            # 5. Stage, Commit, and Push
                             git add Tetris-V2/k8s/deployment.yaml
                             
                             if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
-                                echo "No changes detected. The file might already be updated."
+                                echo "No changes detected."
                             else
                                 git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
-                                git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
+                                git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git deploy
                             fi
                         """
                     }
