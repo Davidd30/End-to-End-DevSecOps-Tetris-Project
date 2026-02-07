@@ -112,6 +112,7 @@ pipeline {
                         sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
                         
                         echo "Pushing amd64 image to ECR..."
+                        // Since it's already built, this will use the cache and push immediately
                         sh """
                             docker buildx build \
                             --platform linux/amd64 \
@@ -217,27 +218,35 @@ pipeline {
                         def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                         
                         sh """
-                            git checkout main || git checkout -b main
-                            
+                            # 1. Setup user identity
                             git config user.email "david.nabil987@gmail.com"
                             git config user.name "Davidd30"
-
-                            git fetch origin main
-                            git checkout main
-                            git reset --hard origin/main
-
+                
+                            # 2. FORCE CLEAN the workspace to remove build artifacts
+                            # This fixes the "Your local changes would be overwritten" error
+                            git reset --hard
+                            git clean -fd
+                
+                            # 3. Fetch and Switch to deploy
+                            git fetch origin deploy
+                            git checkout deploy || git checkout -b deploy
+                            git reset --hard origin/deploy
+                
+                            # 4. Update the image URI
+                            # Re-verify if 'Tetris-V2' is part of the path in the 'deploy' branch
                             echo "Updating manifest with image: ${imageUri}"
                             sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
                             
                             cat Tetris-V2/k8s/deployment.yaml
-
+                
+                            # 5. Stage, Commit, and Push
                             git add Tetris-V2/k8s/deployment.yaml
                             
                             if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
-                                echo "No changes detected. The file might already be updated."
+                                echo "No changes detected."
                             else
-                                git commit -m "Updating image to ${IMAGE_TAG}"
-                                git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
+                                git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
+                                git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git deploy
                             fi
                         """
                     }
