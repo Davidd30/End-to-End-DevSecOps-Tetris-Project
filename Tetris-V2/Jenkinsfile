@@ -2,9 +2,15 @@ pipeline {
     agent any
 
     environment {
+<<<<<<< HEAD
         AWS_ACCOUNT_ID = '391369718038'
         AWS_REGION     = 'us-east-1'
         ECR_REPO_NAME  = 'tetris-game'
+=======
+        AWS_ACCOUNT_ID = '944880694929'
+        AWS_REGION     = 'us-east-1'     
+        ECR_REPO_NAME  = 'tetris-game'   
+>>>>>>> 255d0e27 (Editing the Jenkinsfile to add SonarQube)
         ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_TAG      = "${env.BUILD_NUMBER}"
     }
@@ -17,6 +23,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
+<<<<<<< HEAD
                 checkout scm
             }
         }
@@ -34,6 +41,16 @@ pipeline {
                 dir('Tetris-V2') {
                     withEnv(["NODE_OPTIONS=--openssl-legacy-provider"]) {
                         sh 'npm run build'
+=======
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+                    dir('Tetris-V2') {
+                        withSonarQubeEnv('sonar-server') {
+                            sh "/usr/local/bin/sonar-scanner \
+                                -Dsonar.projectKey=Tetris-Game \
+                                -Dsonar.sources=."
+                        }
+>>>>>>> 255d0e27 (Editing the Jenkinsfile to add SonarQube)
                     }
                 }
             }
