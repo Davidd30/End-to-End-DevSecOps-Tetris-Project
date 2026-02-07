@@ -4,11 +4,10 @@ metadata:
   name: tetris-monitoring
   namespace: argocd
 spec:
-  project: default
   source:
     repoURL: https://github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project
     targetRevision: feature/monitoring
-    path: Tetris-V2/k8s/monitoring-all
+    path: Tetris-V2/k8s/monitoring-all  # هذا المسار يجب أن يكون مطابق للملف على GitHub
   destination:
     server: https://kubernetes.default.svc
     namespace: tetris
@@ -17,4 +16,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-    - CreateNamespace=true
+      - CreateNamespace=true
