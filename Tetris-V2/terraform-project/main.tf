@@ -1,14 +1,27 @@
-resource "aws_s3_bucket" "terraform_state" {
-  bucket        = "beshoy-eks-state-unique-id" # غير الاسم ده لاسم فريد
-  force_destroy = true # عشان لو حبيت تمسحها بعدين بسهولة
+module "vpc_module" {
+  source        = "./modules/vpc"
+  cluster_name  = var.eks_cluster_name
+  vpc_cidr      = var.vpc_cidr
+  public_cidrs  = var.public_subnet_cidr
+  private_cidrs = var.private_subnet_cidr
+  azs           = var.availability_zones
+}
+module "iam_module" {
+  source       = "./modules/iam"
+  cluster_name = var.eks_cluster_name
 }
 
-resource "aws_dynamodb_table" "terraform_locks" {
-  name         = "terraform-lock"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
+module "security_groups" {
+  source       = "./modules/security-groups"
+  vpc_id       = module.vpc_module.vpc_id 
+  cluster_name = var.eks_cluster_name
+}
+
+module "eks_module" {
+  source           = "./modules/eks"
+  cluster_name     = var.eks_cluster_name
+  cluster_role_arn = module.iam_module.cluster_role_arn
+  node_role_arn    = module.iam_module.node_role_arn
+  subnet_ids       = module.vpc_module.private_subnet_ids 
+  nodes_sg_id      = module.security_groups.nodes_sg_id
 }
