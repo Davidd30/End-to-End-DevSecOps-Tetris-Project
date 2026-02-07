@@ -164,4 +164,4 @@ data:
         slack_configs:
           - channel: '#alerts'
             send_resolved: true
-            api_url: "<SLACK_WEBHOOK_URL>" #webhook url
+            api_url: "https://hooks.slack.com/services/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" #webhook url
