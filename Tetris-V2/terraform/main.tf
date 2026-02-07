@@ -4,21 +4,53 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.25"
+    }
+
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.13"
+    }
   }
 
-  backend "s3" {
-    bucket  = "practice-eks-install-bucket-rina-2026-01"
-    key     = "eks/terraform.tfstate"
-    region  = "us-east-1"
-    encrypt = true
-  }
+backend "s3" {
+  bucket  = "terraform-state-rina-123456789012-us-east-1"
+  key     = "eks/terraform.tfstate"
+  region  = "us-east-1"
+  encrypt = true
 }
 
-
-
+}
 provider "aws" {
   region = var.region
 }
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(
+    module.eks.cluster_certificate_authority
+  )
+  token = data.aws_eks_cluster_auth.cluster.token
+}
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(
+      module.eks.cluster_certificate_authority
+    )
+    token = data.aws_eks_cluster_auth.cluster.token
+  }
+}
+################################################################################
+# DATA SOURCE: EKS cluster auth token
+################################################################################
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+  depends_on = [module.eks]
+}
+
 
 ################################################################################
 # LAYER 1: VPC (foundation - no dependencies)
