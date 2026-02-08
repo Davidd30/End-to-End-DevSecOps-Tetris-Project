@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project'
-    targetRevision: rina2
+    targetRevision: deploy
     path: 'Tetris-V2/k8s' 
   destination:
     server: 'https://kubernetes.default.svc'
