@@ -19,6 +19,7 @@ terraform {
   }
 }
 
+<<<<<<< HEAD
 # في ملف provider.tf
 
 provider "helm" {
@@ -34,10 +35,13 @@ provider "helm" {
     }
   }
 }
+=======
+>>>>>>> rina2
 
 provider "kubernetes" {
   host                   = module.eks_module.cluster_endpoint
   cluster_ca_certificate = base64decode(module.eks_module.cluster_certificate_authority_data)
+<<<<<<< HEAD
 
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
@@ -45,3 +49,19 @@ provider "kubernetes" {
     command     = "aws"
   }
 }
+=======
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = module.eks_module.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks_module.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
+}
+
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks_module.cluster_name
+}
+>>>>>>> rina2
