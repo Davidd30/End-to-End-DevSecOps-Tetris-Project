@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: monitoring
+  namespace: tetris
 data:
   prometheus.yml: |
     global:
@@ -13,7 +13,7 @@ data:
       alertmanagers:
       - static_configs:
         - targets:
-          - alertmanager.monitoring.svc.cluster.local:9093
+          - alertmanager.tetris.svc.cluster.local:9093
 
     rule_files:
       - /etc/prometheus/rules/*.yml
@@ -31,7 +31,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-rules
-  namespace: monitoring
+  namespace: tetris
 data:
   rules.yml: |
     groups:
@@ -49,7 +49,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus-pvc
-  namespace: monitoring
+  namespace: tetris
 spec:
   accessModes:
     - ReadWriteOnce
@@ -61,7 +61,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: monitoring
+  namespace: tetris
 spec:
   replicas: 1
   selector:
@@ -103,7 +103,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus-server
-  namespace: monitoring
+  namespace: tetris
 spec:
   selector:
     app: prometheus
@@ -115,7 +115,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alertmanager-config
-  namespace: monitoring
+  namespace: tetris
 data:
   alertmanager.yml: |
     global:
@@ -135,7 +135,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: alertmanager-pvc
-  namespace: monitoring
+  namespace: tetris
 spec:
   accessModes:
     - ReadWriteOnce
@@ -147,7 +147,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: alertmanager
-  namespace: monitoring
+  namespace: tetris
 spec:
   replicas: 1
   selector:
@@ -183,7 +183,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: alertmanager
-  namespace: monitoring
+  namespace: tetris
 spec:
   selector:
     app: alertmanager
@@ -195,7 +195,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-pvc
-  namespace: monitoring
+  namespace: tetris
 spec:
   accessModes:
     - ReadWriteOnce
@@ -207,7 +207,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: tetris
 spec:
   replicas: 1
   selector:
@@ -240,7 +240,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: monitoring
+  namespace: tetris
 spec:
   selector:
     app: grafana
