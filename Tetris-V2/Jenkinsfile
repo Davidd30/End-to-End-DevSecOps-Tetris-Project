@@ -76,11 +76,10 @@ pipeline {
             }
         }
 
-stage('Docker Build (Local amd64)') {
+        stage('Docker Build (Local amd64)') {
             steps {
                 script {
                     echo "Building amd64 image and loading it locally for scanning..."
-                    // We use --load to make the image available for Trivy on the host
                     sh """
                         docker buildx build \
                         --platform linux/amd64 \
@@ -96,7 +95,6 @@ stage('Docker Build (Local amd64)') {
             steps {
                 script {
                     echo "Scanning Image with Trivy..."
-                    // --exit-code 1 will fail the pipeline if vulnerabilities are found
                     sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL --exit-code 1 ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
                 }
             }
@@ -124,88 +122,9 @@ stage('Docker Build (Local amd64)') {
                 }
             }
         }
-        // stage('Build & Push Multi-Arch Image') {
-        //     steps {
-        //         withCredentials([
-        //             usernamePassword(
-        //                 credentialsId: 'aws-dorgham',
-        //                 usernameVariable: 'AWS_ACCESS_KEY_ID',
-        //                 passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-        //             )
-        //         ]) {
-        //             script {
-        //                 echo "Logging into Amazon ECR..."
-        //                 sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
-        
-        //                 echo "Building and Pushing for amd64 and arm64..."
-        //                 sh """
-        //                     docker buildx build \
-        //                     --platform linux/amd64,linux/arm64 \
-        //                     -t ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG} \
-        //                     -f Tetris-V2/Dockerfile \
-        //                     --push Tetris-V2/.
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
-
-        // stage('Trivy Image Scan') {
-        //     steps {
-        //         script {
-        //             echo "Scanning Image..."
-        //             sh "/usr/local/bin/trivy image --severity HIGH,CRITICAL ${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-        //         }
-        //     }
-        // }
 
 
-
-
-
-
-
-        // stage('Update Deployment YAML') {
-        //     steps {
-        //         script {
-        //             def imageUri = "${ECR_REGISTRY}/${ECR_REPO_NAME}:${IMAGE_TAG}"
-        //             echo "Updating deployment.yaml with ${imageUri}"
-        //             sh "sed -i \"s|${ECR_REGISTRY}/${ECR_REPO_NAME}:.*|${imageUri}|g\" Tetris-V2/k8s/deployment.yaml"
-        //         }
-        //     }
-        // }
-
-        // stage('Push Manifest to GitHub') {
-        //     steps {
-        //         withCredentials([
-        //             usernamePassword(
-        //                 credentialsId: 'GitHub-Token', 
-        //                 usernameVariable: 'GIT_USER', 
-        //                 passwordVariable: 'GIT_TOKEN'
-        //             )
-        //         ]) {
-        //             script {
-        //                 sh """
-        //                     git checkout main || git checkout -b main
-
-        //                     git config user.email "david.nabil987@gmail.com"
-        //                     git config user.name "Davidd30"
-
-        //                     git add Tetris-V2/k8s/deployment.yaml
-                            
-        //                     if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
-        //                         echo "No changes detected in deployment.yaml. Skipping push."
-        //                     else
-        //                         git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
-        //                         git push https://${GIT_USER}:${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git main
-        //                     fi
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
-
-        stage('Push Manifest to GitHub') {
+        stage('Edit and Push Manifest to GitHub') {
             steps {
                 withCredentials([
                     usernamePassword(
