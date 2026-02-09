@@ -10,7 +10,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: prometheus.example.com
+    - host: prometheus.davidgirgis.online
       http:
         paths:
           - path: /
@@ -21,7 +21,7 @@ spec:
                 port:
                   number: 9090
 
-    - host: grafana.example.com
+    - host: grafana.davidgirgis.online
       http:
         paths:
           - path: /

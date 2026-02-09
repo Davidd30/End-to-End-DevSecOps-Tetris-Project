@@ -8,7 +8,7 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
 spec:
   rules:
-  - host: tetris.example.com
+  - host: tetris.davidgirgis.online
     http:
       paths:
       - path: /
