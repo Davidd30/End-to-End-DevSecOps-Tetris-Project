@@ -2414,7 +2414,7 @@ server:
   # Argo CD server ingress configuration
   ingress:
     # -- Enable an ingress resource for the Argo CD server
-    enabled: false
+    enabled: true
     # -- Specific implementation for ingress controller. One of `generic`, `aws` or `gke`
     ## Additional configuration might be required in related configuration sections
     controller: generic
@@ -2422,16 +2422,23 @@ server:
     labels: {}
     # -- Additional ingress annotations
     ## Ref: https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#option-1-ssl-passthrough
-    annotations: {}
+    annotations: 
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: david-devops-tools
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:391369718038:certificate/bc6b1e87-947f-47d0-9375-a59bdb7d3b8b
+      external-dns.alpha.kubernetes.io/hostname: argocd.davidgirgis.online
+      # ArgoCD specific: backend protocol must be HTTPS because the server uses TLS
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
       # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
       # nginx.ingress.kubernetes.io/ssl-passthrough: "true"
 
     # -- Defines which ingress controller will implement the resource
-    ingressClassName: ""
+    ingressClassName: alb
 
     # -- Argo CD server hostname
     # @default -- `""` (defaults to global.domain)
-    hostname: ""
+    hostname: "argocd.davidgirgis.online"
 
     # -- The path to Argo CD server
     path: /
@@ -2544,7 +2551,7 @@ server:
 
     # -- Argo CD server hostname for dedicated [gRPC-ingress]
     # @default -- `""` (defaults to grpc.`server.ingress.hostname`)
-    hostname: ""
+    hostname: "argocd.davidgirgis.online"
 
     # -- Argo CD server ingress path for dedicated [gRPC-ingress]
     path: /
@@ -2558,9 +2565,11 @@ server:
 
     # -- The list of additional hostnames to be covered by ingress record
     # @default -- `[]` (See [values.yaml])
-    extraHosts: []
+    extraHosts:
       # - name: grpc.argocd.example.com
       #   path: /
+      - name: "argo-alias.davidgirgis.online"
+        path: /
 
     # -- Additional ingress paths for dedicated [gRPC-ingress]
     # @default -- `[]` (See [values.yaml])

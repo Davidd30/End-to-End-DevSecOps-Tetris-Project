@@ -4,9 +4,20 @@ metadata:
   name: tetris-ingress
   namespace: tetris
   annotations:
-    kubernetes.io/ingress.class: "alb"
+    # Modern Ingress configuration
     alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: david-devops-tools
+    
+    # SSL/TLS Configuration
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:391369718038:certificate/bc6b1e87-947f-47d0-9375-a59bdb7d3b8b
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # ExternalDNS configuration
+    external-dns.alpha.kubernetes.io/hostname: tetris.davidgirgis.online
 spec:
+  ingressClassName: alb
   rules:
   - host: tetris.davidgirgis.online
     http:

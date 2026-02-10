@@ -14,6 +14,11 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.13"
     }
+
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 
 backend "s3" {
@@ -132,3 +137,136 @@ module "eks" {
     module.iam
   ]
 }
+
+
+# 1. Get the OIDC Provider URL from the EKS cluster
+# Data source to fetch the thumbprint for OIDC provider
+data "tls_certificate" "cluster" {
+  url = module.eks.oidc_issuer
+}
+
+# 2. Create the OIDC Provider for IRSA (IAM Roles for Service Accounts)
+resource "aws_iam_openid_connect_provider" "oidc" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.cluster.certificates[0].sha1_fingerprint]
+  url             = module.eks.oidc_issuer
+
+  depends_on = [module.eks]
+}
+
+# 3. Create the IAM Role with a Trust Policy for the Service Account
+resource "aws_iam_role" "external_dns" {
+  name = "external-dns-controller-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.oidc.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            # This ensures only the service account in the 'kube-system' namespace can use this role
+            "${replace(aws_iam_openid_connect_provider.oidc.url, "https://", "")}:sub": "system:serviceaccount:kube-system:external-dns"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# 3. Attach the Route53 permissions to the role
+resource "aws_iam_role_policy" "external_dns_permissions" {
+  name = "external-dns-permissions"
+  role = aws_iam_role.external_dns.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Effect   = "Allow"
+        Resource = ["arn:aws:route53:::hostedzone/Z09342907YP1AOPYGRHO"] # Or limit to your specific ZoneID
+      },
+      {
+        Action   = ["route53:ListHostedZones", "route53:ListResourceRecordSets"]
+        Effect   = "Allow"
+        Resource = ["*"]
+      }
+    ]
+  })
+}
+
+resource "helm_release" "external_dns" {
+  name       = "external-dns"
+  repository = "https://kubernetes-sigs.github.io/external-dns/"
+  chart      = "external-dns"
+  namespace  = "kube-system"
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.external_dns.arn
+  }
+
+  set {
+    name  = "provider"
+    value = "aws"
+  }
+
+  set {
+    name  = "source"
+    value = "ingress" # Tells it to look at Ingress objects
+  }
+
+  set {
+    name  = "domainFilters[0]"
+    value = "davidgirgis.online" # Limits it to your domain
+  }
+}
+
+################################################################################
+# AWS Load Balancer Controller IAM Role
+################################################################################
+resource "aws_iam_role" "aws_load_balancer_controller" {
+  name = "aws-load-balancer-controller-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.oidc.arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.oidc.url, "https://", "")}:sub": "system:serviceaccount:kube-system:aws-load-balancer-controller"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# Attach the AWS managed policy for Load Balancer Controller
+resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
+  role       = aws_iam_role.aws_load_balancer_controller.name
+  policy_arn = "arn:aws:iam::391369718038:policy/AWSLoadBalancerControllerIAMPolicy"
+}
+
+resource "kubernetes_service_account" "aws_lbc" {
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    annotations = {
+      # This links the K8s SA to the AWS IAM Role
+      "eks.amazonaws.com/role-arn" = aws_iam_role.aws_load_balancer_controller.arn
+    }
+  }
+}
+
+# NOTE: The AWS Load Balancer Controller Helm release is deployed manually via eksctl
