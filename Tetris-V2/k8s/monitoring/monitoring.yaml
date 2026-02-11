@@ -1,0 +1,659 @@
+# =========================
+# Namespace
+# =========================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tetris
+---
+# =========================
+# RBAC for Prometheus
+# =========================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: tetris
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "apps"]
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: tetris
+---
+# =========================
+# Prometheus Config
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: tetris
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+
+    alerting:
+      alertmanagers:
+      - static_configs:
+        - targets: ["alertmanager.tetris.svc.cluster.local:9093"]
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    scrape_configs:
+    - job_name: "prometheus"
+      static_configs:
+      - targets: ["localhost:9090"]
+
+    - job_name: "kube-state-metrics"
+      static_configs:
+      - targets: ["kube-state-metrics.tetris.svc.cluster.local:8080"]
+
+    - job_name: "node-exporter"
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: node-exporter
+        - source_labels: [__meta_kubernetes_pod_ip]
+          target_label: __address__
+          replacement: $1:9100
+
+    - job_name: "tetris-app"
+      static_configs:
+        - targets: ["tetris-app.tetris.svc.cluster.local:80"]
+
+    - job_name: "kubernetes-pods"
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__meta_kubernetes_pod_ip, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: (.+);(.+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+
+    - job_name: "cadvisor"
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: cadvisor
+        - source_labels: [__meta_kubernetes_pod_ip]
+          target_label: __address__
+          replacement: $1:8080
+
+---
+# =========================
+# Prometheus Rules
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: tetris
+data:
+  rules.yml: |
+    groups:
+    - name: tetris-alerts
+      rules:
+      - alert: TetrisAppDown
+        expr: sum(kube_deployment_status_replicas_available{deployment="tetris-app", namespace="tetris"}) == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Tetris App is DOWN"
+          description: "Tetris pod is unreachable"
+
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{namespace="tetris"}[2m]) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage > 80%"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{namespace="tetris"} / container_spec_memory_limit_bytes > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Memory usage"
+          description: "Memory usage > 80%"
+
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod CrashLoop detected"
+
+---
+# =========================
+# Prometheus PVC
+# =========================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: tetris
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+# =========================
+# Prometheus Deployment
+# =========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: tetris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.52.0
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/data"
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+        - name: rules
+          mountPath: /etc/prometheus/rules
+        - name: storage
+          mountPath: /data
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+      - name: rules
+        configMap:
+          name: prometheus-rules
+      - name: storage
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
+
+---
+# =========================
+# Prometheus Service (NodePort)
+# =========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-server
+  namespace: tetris
+spec:
+  type: NodePort
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+    nodePort: 30090
+
+---
+# =========================
+# Alertmanager Config
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: tetris
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'https://hooks.slack.com/services/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'
+
+    route:
+      receiver: 'slack-notifications'
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+
+    receivers:
+      - name: 'slack-notifications'
+        slack_configs:
+          - api_url: 'https://hooks.slack.com/services/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'
+            channel: '#alerts'
+            send_resolved: true
+            text: |-
+              {{ range .Alerts }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              {{ end }}
+
+---
+# =========================
+# Alertmanager PVC
+# =========================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-pvc
+  namespace: tetris
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+# =========================
+# Alertmanager Deployment
+# =========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: tetris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.26.0
+        args:
+        - "--config.file=/etc/alertmanager/alertmanager.yml"
+        - "--storage.path=/data"
+        ports:
+        - containerPort: 9093
+        volumeMounts:
+        - name: config
+          mountPath: /etc/alertmanager
+        - name: storage
+          mountPath: /data
+      volumes:
+      - name: config
+        configMap:
+          name: alertmanager-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: alertmanager-pvc
+---
+# =========================
+# Alertmanager Service
+# =========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: tetris
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - port: 9093
+    targetPort: 9093
+---
+# =========================
+# Grafana Datasource
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: tetris
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus-server.tetris.svc.cluster.local:9090
+      isDefault: true
+---
+# =========================
+# Grafana PVC
+# =========================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: tetris
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# =========================
+# Grafana Deployment
+# ========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: tetris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.4.1
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: admin
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value: admin
+        volumeMounts:
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        - name: grafana-datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: grafana-dashboards
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: grafana-dashboard-config
+          mountPath: /etc/grafana/provisioning/dashboards
+      volumes:
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+      - name: grafana-datasources
+        configMap:
+          name: grafana-datasources
+      - name: grafana-dashboards
+        configMap:
+          name: grafana-dashboards
+      - name: grafana-dashboard-config
+        configMap:
+          name: grafana-dashboard-config
+
+---
+# =========================
+# Grafana Service
+# =========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: tetris
+spec:
+  selector:
+    app: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+# =========================
+# Grafana Dashboard
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: tetris
+  labels:
+    grafana_dashboard: "1"
+data:
+  tetris-dashboard.json: |
+    {
+      "title": "Tetris App Metrics",
+      "schemaVersion": 36,
+      "templating": {
+        "list": [
+          {
+            "name": "pod",
+            "type": "query",
+            "datasource": "Prometheus",
+            "query": "label_values(up{job=\"kubernetes-pods\"}, instance)",
+            "refresh": 1,
+            "includeAll": true,
+            "multi": false
+          }
+        ]
+      },
+      "panels": [
+        {
+          "type": "graph",
+          "title": "Tetris App Status",
+          "targets": [
+            {
+              "expr": "up{job=\"kubernetes-pods\", instance=\"$pod\"}",
+              "legendFormat": "Tetris App",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "CPU Usage (%)",
+          "targets": [
+            {
+              "expr": "rate(container_cpu_usage_seconds_total{namespace=\"tetris\", instance=\"$pod\"}[2m]) * 100",
+              "legendFormat": "{{instance}}",
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "Memory Usage (%)",
+          "targets": [
+            {
+              "expr": "container_memory_usage_bytes{namespace=\"tetris\", instance=\"$pod\"} / container_spec_memory_limit_bytes * 100",
+              "legendFormat": "{{instance}}",
+              "refId": "C"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "Pod Restarts",
+          "targets": [
+            {
+              "expr": "rate(kube_pod_container_status_restarts_total{namespace=\"tetris\", instance=\"$pod\"}[5m])",
+              "legendFormat": "{{instance}}",
+              "refId": "D"
+            }
+          ]
+        }
+      ]
+    }
+
+---
+# =========================
+#  Dashboars provider
+# =========================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-config
+  namespace: tetris
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: 'Tetris Dashboards'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /etc/grafana/provisioning/dashboards
+---
+# =========================
+# kube-state-metrics
+# =========================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: tetris
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        app: kube-state-metrics
+    spec:
+      containers:
+      - name: kube-state-metrics
+        image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.10.1
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: tetris
+spec:
+  selector:
+    app: kube-state-metrics
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+# =========================
+# Node Exporter
+# =========================
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+  namespace: tetris
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:v1.7.0
+---
+# =========================
+# Tetris App Deployment
+# =========================
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: tetris-app
+#   namespace: tetris
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: tetris-app
+#   template:
+#     metadata:
+#       labels:
+#         app: tetris-app
+#       annotations:
+#         prometheus.io/scrape: "true"
+#         prometheus.io/port: "80"
+#         prometheus.io/path: "/metrics"
+#     spec:
+#       containers:
+#       - name: tetris-app
+#         image: rehabsliem/tetris-app:metrics
+#         ports:
+#         - containerPort: 80
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: tetris-app
+#   namespace: tetris
+# spec:
+#   type: NodePort
+#   selector:
+#     app: tetris-app
+#   ports:
+#   - name: http
+#     port: 80
+#     targetPort: 80
+#     nodePort: 30007

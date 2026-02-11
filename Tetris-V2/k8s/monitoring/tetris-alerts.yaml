@@ -1,0 +1,30 @@
+groups:
+- name: tetris-alerts
+  rules:
+
+  - alert: TetrisAppDown
+    expr: up{job="kubernetes-pods"} == 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Tetris app is DOWN"
+      description: "Tetris pod is not reachable."
+
+  - alert: HighCPUUsage
+    expr: rate(process_cpu_seconds_total{job="kubernetes-pods"}[1m]) > 0.8
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU usage detected"
+      description: "CPU usage > 80% for 1 minute."
+
+  - alert: HighMemoryUsage
+    expr: process_resident_memory_bytes{job="kubernetes-pods"} > 300000000
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High Memory usage detected"
+      description: "Memory usage above 300MB."
