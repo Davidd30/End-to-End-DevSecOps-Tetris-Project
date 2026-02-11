@@ -76,7 +76,7 @@ pipeline {
             }
         }
 
-        stage('Docker Build (Local amd64)') {
+        stage('Docker Build') {
             steps {
                 script {
                     echo "Building amd64 image and loading it locally for scanning..."
@@ -142,7 +142,6 @@ pipeline {
                             git config user.name "Davidd30"
                 
                             # 2. FORCE CLEAN the workspace to remove build artifacts
-                            # This fixes the "Your local changes would be overwritten" error
                             git reset --hard
                             git clean -fd
                 
@@ -152,7 +151,6 @@ pipeline {
                             git reset --hard origin/deploy
                 
                             # 4. Update the image URI
-                            # Re-verify if 'Tetris-V2' is part of the path in the 'deploy' branch
                             echo "Updating manifest with image: ${imageUri}"
                             sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
                             
@@ -164,7 +162,7 @@ pipeline {
                             if git diff-index --quiet HEAD -- Tetris-V2/k8s/deployment.yaml; then
                                 echo "No changes detected."
                             else
-                                git commit -m "chore: update image to ${IMAGE_TAG} [skip ci]"
+                                git commit -m "Updating image to ${IMAGE_TAG} [skip ci]"
                                 git push https://${GIT_TOKEN}@github.com/Davidd30/End-to-End-DevSecOps-Tetris-Project.git deploy
                             fi
                         """
