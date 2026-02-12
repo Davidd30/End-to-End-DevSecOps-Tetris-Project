@@ -615,6 +615,48 @@ spec:
       - name: node-exporter
         image: prom/node-exporter:v1.7.0
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: david-devops-tools
+    
+    # SSL/TLS Configuration
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:391369718038:certificate/bc6b1e87-947f-47d0-9375-a59bdb7d3b8b
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    
+    # ExternalDNS configuration
+    external-dns.alpha.kubernetes.io/hostname: tetris.davidgirgis.online
+spec:
+  ingressClassName: alb
+  rules:
+    - host: prometheus.davidgirgis.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus-service
+                port:
+                  number: 9090
+
+    - host: grafana.davidgirgis.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-service
+                port:
+                  number: 3000
+
 # =========================
 # Tetris App Deployment
 # =========================
@@ -657,3 +699,4 @@ spec:
 #     port: 80
 #     targetPort: 80
 #     nodePort: 30007
+

@@ -1,9 +1,0 @@
-# Temporarily disable ArgoCD module to avoid Kubernetes provider timeout
-# Uncomment later when cluster is stable
-
-# module "argocd" {
-#   source = "./modules/argocd"
-#   depends_on = [
-#     module.eks
-#   ]
-# }
