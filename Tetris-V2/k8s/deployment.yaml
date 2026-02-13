@@ -26,7 +26,7 @@ spec:
       
       containers:
         - name: tetris
-          image: 391369718038.dkr.ecr.us-east-1.amazonaws.com/tetris-game:70
+          image: 391369718038.dkr.ecr.us-east-1.amazonaws.com/tetris-game:73
           imagePullPolicy: Always
           ports:
             - name: http
