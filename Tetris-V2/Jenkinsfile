@@ -152,7 +152,7 @@ pipeline {
                 
                             # 4. Update the image URI
                             echo "Updating manifest with image: ${imageUri}"
-                            sed -i 's|<IMAGE_URI>|${imageUri}|g' Tetris-V2/k8s/deployment.yaml
+                            sed -i "s|\\(image: \\).*|\\1${imageUri}|" Tetris-V2/k8s/deployment.yaml
                             
                             cat Tetris-V2/k8s/deployment.yaml
                 
